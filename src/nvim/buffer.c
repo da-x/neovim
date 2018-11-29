@@ -1659,6 +1659,7 @@ buf_T * buflist_new(char_u *ffname, char_u *sfname, linenr_T lnum, int flags)
     buf = xcalloc(1, sizeof(buf_T));
     // init b: variables
     buf->b_vars = tv_dict_alloc();
+    buf->b_max_signs_per_line = -1;
     init_var_dict(buf->b_vars, &buf->b_bufvar, VAR_SCOPE);
     buf_init_changedtick(buf);
   }
@@ -4990,6 +4991,7 @@ static void insert_sign(
     newsign->lnum = lnum;
     newsign->typenr = typenr;
     newsign->next = next;
+    buf->b_max_signs_per_line = -1;
 
     if (prev == NULL) {
         /* When adding first sign need to redraw the windows to create the
@@ -5005,6 +5007,71 @@ static void insert_sign(
     else {
         prev->next = newsign;
     }
+}
+
+static int linenr_compare(const void *s1, const void *s2)
+{
+    linenr_T l1 = *(linenr_T *)s1;
+    linenr_T l2 = *(linenr_T *)s2;
+    if (l1 > l2) {
+        return 1;
+    }
+    if (l1 < l2) {
+        return -1;
+    }
+    return 0;
+}
+
+int buf_get_needed_signcols(buf_T *buf)
+{
+    if (buf->b_max_signs_per_line == -1) {
+        signlist_T *sign;  /* a sign in the signlist */
+        linenr_T *sign_line_numbers;
+        int nr_signs = 0, i = 0, same;
+
+        /* Count the number of signs */
+        for (sign = buf->b_signlist; sign != NULL; sign = sign->next) {
+            nr_signs++;
+        }
+
+        /* Make an array of all the line numbers of the signs */
+        sign_line_numbers = xcalloc((size_t)nr_signs, sizeof(linenr_T));
+        for (sign = buf->b_signlist; sign != NULL; sign = sign->next) {
+            sign_line_numbers[i] = sign->lnum;
+            i++;
+        }
+
+        /* Sort the array */
+        qsort(sign_line_numbers, (size_t)nr_signs, sizeof(linenr_T), linenr_compare);
+
+        /* Find the maximum amount of signs existing in a single line */
+        buf->b_max_signs_per_line = 0;
+
+        same = 1;
+        for (i = 1; i < nr_signs; i++) {
+            if (sign_line_numbers[i - 1] != sign_line_numbers[i]) {
+                if (buf->b_max_signs_per_line < same) {
+                    buf->b_max_signs_per_line = same;
+                }
+                same = 1;
+            } else {
+                same++;
+            }
+        }
+
+        if (nr_signs > 0 && buf->b_max_signs_per_line < same) {
+            buf->b_max_signs_per_line = same;
+        }
+
+        xfree(sign_line_numbers);
+
+        if (buf->b_max_signs_per_line != buf->b_colsigns) {
+            buf->b_colsigns = buf->b_max_signs_per_line;
+            redraw_buf_later(buf, NOT_VALID);
+        }
+    }
+
+    return buf->b_colsigns;
 }
 
 /*
@@ -5057,10 +5124,11 @@ linenr_T buf_change_sign_type(
     return (linenr_T)0;
 }
 
-int buf_getsigntype(
+int buf_getsigntype_ext(
         buf_T *buf,
         linenr_T lnum,
-        int type /* SIGN_ICON, SIGN_TEXT, SIGN_ANY, SIGN_LINEHL */
+        int type, /* SIGN_ICON, SIGN_TEXT, SIGN_ANY, SIGN_LINEHL */
+        int idx
         )
 {
     signlist_T	*sign;		/* a sign in a b_signlist */
@@ -5072,12 +5140,25 @@ int buf_getsigntype(
                         && sign_get_text(sign->typenr) != NULL)
                     || (type == SIGN_LINEHL
                         && sign_get_attr(sign->typenr, TRUE) != 0))) {
+
+            if (idx > 0) {
+                idx--;
+                continue;
+            }
+
             return sign->typenr;
         }
     }
     return 0;
 }
 
+int buf_getsigntype(
+        buf_T *buf,
+        linenr_T lnum,
+        int type /* SIGN_ICON, SIGN_TEXT, SIGN_ANY, SIGN_LINEHL */)
+{
+    return buf_getsigntype_ext(buf, lnum, type, 0);
+}
 
 linenr_T buf_delsign(
         buf_T *buf, /* buffer sign is stored in */
@@ -5089,6 +5170,7 @@ linenr_T buf_delsign(
     signlist_T *next;   /* the next sign in a b_signlist */
     linenr_T lnum;      /* line number whose sign was deleted */
 
+    buf->b_max_signs_per_line = -1;
     lastp = &buf->b_signlist;
     lnum = 0;
     for (sign = buf->b_signlist; sign != NULL; sign = next) {
@@ -5171,6 +5253,7 @@ void buf_delete_signs(buf_T *buf)
         xfree(buf->b_signlist);
         buf->b_signlist = next;
     }
+    buf->b_max_signs_per_line = -1;
 }
 
 /*
@@ -5226,6 +5309,8 @@ void sign_list_placed(buf_T *rbuf)
 void sign_mark_adjust(linenr_T line1, linenr_T line2, long amount, long amount_after)
 {
     signlist_T *sign;  /* a sign in a b_signlist */
+
+    curbuf->b_max_signs_per_line = -1;
 
     for (sign = curbuf->b_signlist; sign != NULL; sign = sign->next) {
         if (sign->lnum >= line1 && sign->lnum <= line2) {
