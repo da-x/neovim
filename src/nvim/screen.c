@@ -2726,26 +2726,29 @@ win_line (
               if (row == startrow + filler_lines && filler_todo <= 0) {
                   text_sign = buf_getsigntype_ext(wp->w_buffer, lnum, SIGN_TEXT,
                                                   sign_idx);
-                  if (text_sign != 0) {
-                      p_extra = sign_get_text(text_sign);
-                      int symbol_blen = (int)STRLEN(p_extra);
-                      if (p_extra != NULL) {
-                          c_extra = NUL;
-                          // symbol(s) bytes + (filling spaces) (one byte each)
-                          n_extra = symbol_blen +
-                            (win_signcol_width(wp) - mb_string2cells(p_extra));
-                          memset(extra, ' ', sizeof(extra));
-                          STRNCPY(extra, p_extra, STRLEN(p_extra));
-                          p_extra = extra;
-                          p_extra[n_extra] = NUL;
-                      }
-                      char_attr = sign_get_attr(text_sign, FALSE);
-                  }
+              } else {
+                  text_sign = 0;
+              }
 
-                  sign_idx++;
-                  if (sign_idx < count) {
-                      draw_state = WL_SIGN - 1;
+              if (text_sign != 0) {
+                  p_extra = sign_get_text(text_sign);
+                  int symbol_blen = (int)STRLEN(p_extra);
+                  if (p_extra != NULL) {
+                      c_extra = NUL;
+                      // symbol(s) bytes + (filling spaces) (one byte each)
+                      n_extra = symbol_blen +
+                          (win_signcol_width(wp) - mb_string2cells(p_extra));
+                      memset(extra, ' ', sizeof(extra));
+                      STRNCPY(extra, p_extra, STRLEN(p_extra));
+                      p_extra = extra;
+                      p_extra[n_extra] = NUL;
                   }
+                  char_attr = sign_get_attr(text_sign, FALSE);
+              }
+
+              sign_idx++;
+              if (sign_idx < count) {
+                  draw_state = WL_SIGN - 1;
               }
           }
       }
@@ -2869,6 +2872,7 @@ win_line (
       }
 
       if (draw_state == WL_LINE - 1 && n_extra == 0) {
+        sign_idx = 0;
         draw_state = WL_LINE;
         if (saved_n_extra) {
           /* Continue item from end of wrapped line. */
