@@ -795,7 +795,7 @@ free_buffer_stuff (
   hash_init(&buf->b_vars->dv_hashtab);
   buf_init_changedtick(buf);
   uc_clear(&buf->b_ucmds);              // clear local user commands
-  buf_delete_signs(buf);                // delete any signs
+  buf_delete_signs(buf, -1);            // delete any signs
   bufhl_clear_all(buf);                // delete any highligts
   map_clear_int(buf, MAP_ALL_MODES, true, false);    // clear local mappings
   map_clear_int(buf, MAP_ALL_MODES, true, true);     // clear local abbrevs
@@ -5071,13 +5071,16 @@ void buf_addsign(
 linenr_T buf_change_sign_type(
     buf_T *buf,         /* buffer to store sign in */
     int markId,         /* sign ID */
-    int typenr          /* typenr of sign we are adding */
+    int typenr,         /* typenr of sign we are changing */
+    int prev_typenr     /* possible typenr of the changed sign */
     )
 {
     signlist_T *sign;  /* a sign in the signlist */
 
     for (sign = buf->b_signlist; sign != NULL; sign = sign->next) {
-        if (sign->id == markId) {
+        if (sign->id == markId &&
+            (prev_typenr == -1 || prev_typenr == sign->typenr))
+        {
             sign->typenr = typenr;
             return sign->lnum;
         }
@@ -5115,7 +5118,8 @@ int buf_getsigntype(buf_T *buf, linenr_T lnum, SignType type)
 
 linenr_T buf_delsign(
         buf_T *buf, /* buffer sign is stored in */
-        int id      /* sign id */
+        int id,     /* sign id */
+        int typenr  /* sign typenr */
         )
 {
     signlist_T **lastp; /* pointer to pointer to current sign */
@@ -5127,7 +5131,7 @@ linenr_T buf_delsign(
     lnum = 0;
     for (sign = buf->b_signlist; sign != NULL; sign = next) {
         next = sign->next;
-        if (sign->id == id) {
+        if (sign->id == id && (typenr == -1 || typenr == sign->typenr)) {
             *lastp = next;
             lnum = sign->lnum;
             xfree(sign);
@@ -5188,10 +5192,12 @@ int buf_findsign_id(
 
 /*
  * Delete signs in buffer "buf".
+ *
+ * If sign_typenr != -1, delete only signs of that type.
  */
-void buf_delete_signs(buf_T *buf)
+void buf_delete_signs(buf_T *buf, int sign_typenr)
 {
-    signlist_T *next;
+    signlist_T *sign, *next, **prev;
 
     // When deleting the last sign need to redraw the windows to remove the
     // sign column. Not when curwin is NULL (this means we're exiting).
@@ -5200,10 +5206,20 @@ void buf_delete_signs(buf_T *buf)
       changed_cline_bef_curs();
     }
 
-    while (buf->b_signlist != NULL) {
-        next = buf->b_signlist->next;
-        xfree(buf->b_signlist);
-        buf->b_signlist = next;
+    sign = buf->b_signlist;
+    prev = &buf->b_signlist;
+    while (sign != NULL) {
+        next = sign->next;
+
+        if (sign_typenr == -1 || sign->typenr == sign_typenr) {
+            *prev = next;
+            xfree(sign);
+        } else {
+            // Skip it
+            prev = &sign->next;
+        }
+
+        sign = next;
     }
 }
 
@@ -5214,7 +5230,7 @@ void buf_delete_all_signs(void)
 {
   FOR_ALL_BUFFERS(buf) {
     if (buf->b_signlist != NULL) {
-      buf_delete_signs(buf);
+      buf_delete_signs(buf, -1);
     }
   }
 }

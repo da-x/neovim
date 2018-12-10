@@ -133,30 +133,38 @@ PLACING SIGNS						*:sign-place* *E158*
 		Same, but use buffer {nr}.
 
 							*E885*
-:sign place {id} name={name} file={fname}
+:sign place {id} name={name} file={fname} [prevname={name}]
 		Change the placed sign {id} in file {fname} to use the defined
 		sign {name}.  See remark above about {fname} |:sign-fname|.
 		This can be used to change the displayed sign without moving
 		it (e.g., when the debugger has stopped at a breakpoint).
+		Optionally this will remove signs that only have the provided
+		{prevname}, if specified.
 
-:sign place {id} name={name} buffer={nr}
+:sign place {id} name={name} buffer={nr} [prevname={name}]
 		Same, but use buffer {nr}.
 
 
 REMOVING SIGNS						*:sign-unplace* *E159*
 
-:sign unplace {id} file={fname}
+:sign unplace {id} file={fname} [name={name}]
 		Remove the previously placed sign {id} from file {fname}.
-		See remark above about {fname} |:sign-fname|.
+		See remark above about {fname} |:sign-fname|. Optionally
+		this will remove signs that only have the provided {name},
+		if specified.
 
-:sign unplace * file={fname}
-		Remove all placed signs in file {fname}.
+:sign unplace * file={fname} [name={name}]
+		Remove all placed signs in file {fname}. Optionally
+		this will remove signs that only have the provided {name},
+		if specified.
 
 :sign unplace {id} buffer={nr}
 		Remove the previously placed sign {id} from buffer {nr}.
 
-:sign unplace * buffer={nr}
-		Remove all placed signs in buffer {nr}.
+:sign unplace * buffer={nr} [name={name}]
+		Remove all placed signs in buffer {nr}. Optionally
+		this will remove signs that only have the provided {name},
+		if specified.
 
 :sign unplace {id}
 		Remove the previously placed sign {id} from all files it

@@ -5585,6 +5585,7 @@ void ex_sign(exarg_T *eap)
   char_u *p;
   int idx;
   sign_T *sp;
+  sign_T *sp_prevname;
   sign_T *sp_prev;
 
   // Parse the subcommand.
@@ -5738,6 +5739,7 @@ void ex_sign(exarg_T *eap)
     int id = -1;
     linenr_T lnum = -1;
     char_u *sign_name = NULL;
+    char_u *sign_prevname = NULL;
     char_u *arg1;
 
     if (*arg == NUL) {
@@ -5748,7 +5750,7 @@ void ex_sign(exarg_T *eap)
         // ":sign unplace": remove placed sign at cursor
         id = buf_findsign_id(curwin->w_buffer, curwin->w_cursor.lnum);
         if (id > 0) {
-          buf_delsign(curwin->w_buffer, id);
+          buf_delsign(curwin->w_buffer, id, -1);
           update_debug_sign(curwin->w_buffer, curwin->w_cursor.lnum);
         } else {
           EMSG(_("E159: Missing sign number"));
@@ -5777,7 +5779,7 @@ void ex_sign(exarg_T *eap)
         if (idx == SIGNCMD_UNPLACE && *arg == NUL) {
           // ":sign unplace {id}": remove placed sign by number
           FOR_ALL_BUFFERS(buf) {
-            if ((lnum = buf_delsign(buf, id)) != 0) {
+            if ((lnum = buf_delsign(buf, id, -1)) != 0) {
               update_debug_sign(buf, lnum);
             }
           }
@@ -5811,6 +5813,16 @@ void ex_sign(exarg_T *eap)
         }
         while (sign_name[0] == '0' && sign_name[1] != NUL) {
           sign_name++;
+        }
+      } else if (STRNCMP(arg, "prevname=", 9) == 0) {
+        arg += 9;
+        sign_prevname = arg;
+        arg = skiptowhite(arg);
+        if (*arg != NUL) {
+          *arg++ = NUL;
+        }
+        while (sign_prevname[0] == '0' && sign_prevname[1] != NUL) {
+          sign_prevname++;
         }
       } else if (STRNCMP(arg, "file=", 5) == 0) {
         arg += 5;
@@ -5869,19 +5881,40 @@ void ex_sign(exarg_T *eap)
         EMSGN(_("E157: Invalid sign ID: %" PRId64), id);
       }
     } else if (idx == SIGNCMD_UNPLACE) {
+      if (sign_name != NULL) {
+        for (sp = first_sign; sp != NULL; sp = sp->sn_next) {
+          if (STRCMP(sp->sn_name, sign_name) == 0) {
+            break;
+          }
+        }
+      } else {
+        sp = NULL;
+      }
       if (lnum >= 0 || sign_name != NULL) {
         EMSG(_(e_invarg));
       } else if (id == -2) {
-        // ":sign unplace * file={fname}"
+        // ":sign unplace * file={fname} [name=signname]"
         redraw_buf_later(buf, NOT_VALID);
-        buf_delete_signs(buf);
+        buf_delete_signs(buf, sp ? sp->sn_typenr : -1);
       } else {
-        // ":sign unplace {id} file={fname}"
-        lnum = buf_delsign(buf, id);
+        // ":sign unplace {id} file={fname} [name=signname]"
+        lnum = buf_delsign(buf, id, sp ? sp->sn_typenr : -1);
         update_debug_sign(buf, lnum);
       }
     } else if (sign_name != NULL) {
       // idx == SIGNCMD_PLACE
+      if (sign_prevname != NULL) {
+        for (sp = first_sign; sp != NULL; sp = sp->sn_next) {
+          if (STRCMP(sp->sn_name, sign_name) == 0) {
+            break;
+          }
+        }
+        if (sp == NULL) {
+          EMSG2(_("E155: Unknown sign: %s"), sign_name);
+          return;
+        }
+        sp_prevname = sp;
+      }
       for (sp = first_sign; sp != NULL; sp = sp->sn_next) {
         if (STRCMP(sp->sn_name, sign_name) == 0) {
           break;
@@ -5896,8 +5929,9 @@ void ex_sign(exarg_T *eap)
         // place a sign
         buf_addsign(buf, id, lnum, sp->sn_typenr);
       } else {
-        // ":sign place {id} file={fname}": change sign type
-        lnum = buf_change_sign_type(buf, id, sp->sn_typenr);
+        // ":sign place {id} file={fname} [prevname={name}]": change sign type
+        lnum = buf_change_sign_type(buf, id, sp->sn_typenr,
+                        sp_prevname ? sp_prevname->sn_typenr : -1);
       }
       if (lnum > 0) {
         update_debug_sign(buf, lnum);
