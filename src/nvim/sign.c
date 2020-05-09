@@ -573,15 +573,27 @@ void sign_mark_adjust(
     long amount_after
 )
 {
-  signlist_T *sign;    // a sign in a b_signlist
-  linenr_T new_lnum;   // new line number to assign to sign
+  signlist_T *sign;           // a sign in a b_signlist
+  signlist_T *next;           // the next sign in a b_signlist
+  signlist_T *last = NULL;    // pointer to pointer to current sign
+  signlist_T **lastp = NULL;  // pointer to pointer to current sign
+  linenr_T new_lnum;          // new line number to assign to sign
 
   curbuf->b_signcols_max = -1;
+  lastp = &curbuf->b_signlist;
 
-  FOR_ALL_SIGNS_IN_BUF(curbuf, sign) {
+  for (sign = curbuf->b_signlist; sign != NULL; sign = next) {
+    next = sign->next;
     new_lnum = sign->lnum;
     if (sign->lnum >= line1 && sign->lnum <= line2) {
-      if (amount != MAXLNUM) {
+      if (amount == MAXLNUM) {
+        *lastp = next;
+        if (next) {
+          next->prev = last;
+        }
+        xfree(sign);
+        continue;
+      } else {
         new_lnum += amount;
       }
     } else if (sign->lnum > line2) {
@@ -593,6 +605,9 @@ void sign_mark_adjust(
     if (sign->lnum >= line1 && new_lnum <= curbuf->b_ml.ml_line_count) {
       sign->lnum = new_lnum;
     }
+
+    last = sign;
+    lastp = &sign->next;
   }
 }
 
