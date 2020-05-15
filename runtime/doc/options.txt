@@ -5552,6 +5552,12 @@ A jump table for the options with a short description can be found at |Q_op|.
 	   "yes:[1-9]"  always, with fixed space for signs up to the given
 	                number (maximum 9), e.g. "yes:3"
 
+	Note regarding 'orphaned signs': with signcolumn numbers higher than
+	1, deleting lines will also remove the associated signs automatically,
+	in contrast to the default Vim behavior of keeping and grouping them.
+	This is done in order for the signcolumn appearence not appear weird
+	during line deletion.
+
 
 			*'smartcase'* *'scs'* *'nosmartcase'* *'noscs'*
 'smartcase' 'scs'	boolean	(default off)

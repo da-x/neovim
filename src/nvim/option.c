@@ -7389,17 +7389,17 @@ int csh_like_shell(void)
   return strstr((char *)path_tail(p_sh), "csh") != NULL;
 }
 
-/// Return the number of requested sign columns, based on current
-/// buffer signs and on user configuration.
-int win_signcol_count(win_T *wp)
+/// Return the number of requested sign columns, based on user / configuration.
+int win_signcol_configured(win_T *wp, int *is_fixed)
 {
-  int maximum = 1, needed_signcols;
+  int maximum = 1;
   const char *scl = (const char *)wp->w_p_scl;
+
+  *is_fixed = 1;
 
   if (*scl == 'n') {
     return 0;
   }
-  needed_signcols = buf_signcols(wp->w_buffer);
 
   // yes or yes
   if (!strncmp(scl, "yes:", 4)) {
@@ -7411,12 +7411,28 @@ int win_signcol_count(win_T *wp)
   }
 
   // auto or auto:<NUM>
+  *is_fixed = 0;
+
   if (!strncmp(scl, "auto:", 5)) {
     // Variable depending on a configuration
     maximum = scl[5] - '0';
   }
 
-  return MIN(maximum, needed_signcols);
+  return maximum;
+}
+
+/// Return the number of requested sign columns, based on current
+/// buffer signs and on user configuration.
+int win_signcol_count(win_T *wp)
+{
+  int is_fixed = 0;
+  int configured = win_signcol_configured(wp, &is_fixed);
+
+  if (is_fixed) {
+    return configured;
+  }
+
+  return MIN(configured, buf_signcols(wp->w_buffer));
 }
 
 /// Get window or buffer local options
