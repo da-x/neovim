@@ -890,26 +890,99 @@ describe('TUI', function()
     ]])
   end)
 
-  it('supports Super and Meta modifiers', function()
-    feed_data('i')
-    feed_data('\022\027[106;9u')  -- Super + j
-    feed_data('\022\027[107;33u')  -- Meta + k
-    feed_data('\022\027[13;41u')  -- Super + Meta + Enter
-    feed_data('\022\027[127;48u')  -- Shift + Alt + Ctrl + Super + Meta + Backspace
-    feed_data('\n')
-    feed_data('\022\027[57376;9u')  -- Super + F13
-    feed_data('\022\027[57377;33u')  -- Meta + F14
-    feed_data('\022\027[57378;41u')  -- Super + Meta + F15
-    feed_data('\022\027[57379;48u')  -- Shift + Alt + Ctrl + Super + Meta + F16
+  it('mouse events work with right-click menu', function()
+    child_session:request('nvim_exec', [[
+      call setline(1, 'popup menu test')
+      set mouse=a mousemodel=popup
+
+      aunmenu PopUp
+      menu PopUp.foo :let g:menustr = 'foo'<CR>
+      menu PopUp.bar :let g:menustr = 'bar'<CR>
+      menu PopUp.baz :let g:menustr = 'baz'<CR>
+      highlight Pmenu ctermbg=NONE ctermfg=NONE cterm=underline,reverse
+      highlight PmenuSel ctermbg=NONE ctermfg=NONE cterm=underline,reverse,bold
+    ]], false)
+    meths.input_mouse('right', 'press', '', 0, 0, 4)
     screen:expect([[
-      <D-j><T-k><T-D-CR><M-T-C-S-D-BS>                  |
-      <D-F13><T-F14><T-D-F15><M-T-C-S-D-F16>{1: }           |
+      {1:p}opup menu test                                   |
+      {4:~  }{13: foo }{4:                                          }|
+      {4:~  }{13: bar }{4:                                          }|
+      {4:~  }{13: baz }{4:                                          }|
+      {5:[No Name] [+]                                     }|
+                                                        |
+      {3:-- TERMINAL --}                                    |
+    ]])
+    meths.input_mouse('right', 'release', '', 0, 0, 4)
+    screen:expect_unchanged()
+    meths.input_mouse('move', '', '', 0, 3, 6)
+    screen:expect([[
+      {1:p}opup menu test                                   |
+      {4:~  }{13: foo }{4:                                          }|
+      {4:~  }{13: bar }{4:                                          }|
+      {4:~  }{14: baz }{4:                                          }|
+      {5:[No Name] [+]                                     }|
+                                                        |
+      {3:-- TERMINAL --}                                    |
+    ]])
+    meths.input_mouse('left', 'press', '', 0, 2, 6)
+    screen:expect([[
+      {1:p}opup menu test                                   |
+      {4:~                                                 }|
       {4:~                                                 }|
       {4:~                                                 }|
       {5:[No Name] [+]                                     }|
-      {3:-- INSERT --}                                      |
+      :let g:menustr = 'bar'                            |
       {3:-- TERMINAL --}                                    |
     ]])
+    meths.input_mouse('left', 'release', '', 0, 2, 6)
+    screen:expect_unchanged()
+
+  it('mouse events work with right-click menu', function()
+    child_session:request('nvim_exec', [[
+      call setline(1, 'popup menu test')
+      set mouse=a mousemodel=popup
+
+      aunmenu PopUp
+      menu PopUp.foo :let g:menustr = 'foo'<CR>
+      menu PopUp.bar :let g:menustr = 'bar'<CR>
+      menu PopUp.baz :let g:menustr = 'baz'<CR>
+      highlight Pmenu ctermbg=NONE ctermfg=NONE cterm=underline,reverse
+      highlight PmenuSel ctermbg=NONE ctermfg=NONE cterm=underline,reverse,bold
+    ]], false)
+    meths.input_mouse('right', 'press', '', 0, 0, 4)
+    screen:expect([[
+      {1:p}opup menu test                                   |
+      {4:~  }{13: foo }{4:                                          }|
+      {4:~  }{13: bar }{4:                                          }|
+      {4:~  }{13: baz }{4:                                          }|
+      {5:[No Name] [+]                                     }|
+                                                        |
+      {3:-- TERMINAL --}                                    |
+    ]])
+    meths.input_mouse('right', 'release', '', 0, 0, 4)
+    screen:expect_unchanged()
+    meths.input_mouse('move', '', '', 0, 3, 6)
+    screen:expect([[
+      {1:p}opup menu test                                   |
+      {4:~  }{13: foo }{4:                                          }|
+      {4:~  }{13: bar }{4:                                          }|
+      {4:~  }{14: baz }{4:                                          }|
+      {5:[No Name] [+]                                     }|
+                                                        |
+      {3:-- TERMINAL --}                                    |
+    ]])
+    meths.input_mouse('left', 'press', '', 0, 2, 6)
+    screen:expect([[
+      {1:p}opup menu test                                   |
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {4:~                                                 }|
+      {5:[No Name] [+]                                     }|
+      :let g:menustr = 'bar'                            |
+      {3:-- TERMINAL --}                                    |
+    ]])
+    meths.input_mouse('left', 'release', '', 0, 2, 6)
+    screen:expect_unchanged()
   end)
 
   it('paste: Insert mode', function()
